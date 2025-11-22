@@ -81,13 +81,7 @@ This application is a port of the [Raycast HowLongToBeat extension](https://gith
 
 ## CI/CD
 
-This project includes a GitHub Actions workflow for automated building:
-
-### Automated Builds
-
-The build workflow automatically runs on:
-- Pushes to `main` or `master` branch
-- Pull requests to `main` or `master` branch
+This project includes a GitHub Actions workflow for building the app.
 
 ### Manual Builds
 
