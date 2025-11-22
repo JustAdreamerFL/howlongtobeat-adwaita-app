@@ -11,11 +11,8 @@ struct TestGame {
     count: u32,
     game_id: u64,
     game_name: String,
-    #[serde(default)]
     game_alias: String,
-    #[serde(default)]
     comp_main: u32,
-    #[serde(default)]
     profile_platform: String,
 }
 

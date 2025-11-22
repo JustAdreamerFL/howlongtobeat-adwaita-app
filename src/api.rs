@@ -279,13 +279,11 @@ impl HltbClient {
         // Log the response for debugging (only when HLTB_DEBUG env var is set)
         if std::env::var("HLTB_DEBUG").is_ok() {
             eprintln!("API Response Status: {}", status);
-            eprintln!("API Response Body (first {} chars): {}", 
-                      DEBUG_LOG_MAX_CHARS,
-                      if response_text.len() > DEBUG_LOG_MAX_CHARS { 
-                          &response_text[..DEBUG_LOG_MAX_CHARS] 
-                      } else { 
-                          &response_text 
-                      });
+            eprintln!(
+                "API Response Body (first {} chars): {}", 
+                DEBUG_LOG_MAX_CHARS,
+                truncate_str(&response_text, DEBUG_LOG_MAX_CHARS)
+            );
         }
 
         // Try to parse the response
@@ -294,15 +292,20 @@ impl HltbClient {
                 anyhow::anyhow!(
                     "Failed to parse API response: {}. Response was: {}",
                     e,
-                    if response_text.len() > ERROR_RESPONSE_MAX_CHARS {
-                        &response_text[..ERROR_RESPONSE_MAX_CHARS]
-                    } else {
-                        &response_text
-                    }
+                    truncate_str(&response_text, ERROR_RESPONSE_MAX_CHARS)
                 )
             })?;
         
         Ok(search_response.data)
+    }
+}
+
+/// Truncates a string to a maximum length
+fn truncate_str(s: &str, max_len: usize) -> &str {
+    if s.len() > max_len {
+        &s[..max_len]
+    } else {
+        s
     }
 }
 
