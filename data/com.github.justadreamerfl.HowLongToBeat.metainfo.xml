@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.github.justadreamerfl.HowLongToBeat</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>HowLongToBeat</name>
+  <summary>Search game completion times from HowLongToBeat.com</summary>
+  <description>
+    <p>
+      HowLongToBeat is a native Linux application that lets you search for video games
+      and view their average completion times. Get information about how long it takes
+      to complete the main story, main + extras, or 100% completion.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Search for games by title</li>
+      <li>View completion times for different play styles</li>
+      <li>See platform information</li>
+      <li>View rating counts</li>
+      <li>Direct links to HowLongToBeat.com</li>
+    </ul>
+  </description>
+  <url type="homepage">https://github.com/JustAdreamerFL/howlongtobeat-adwaita-app</url>
+  <url type="bugtracker">https://github.com/JustAdreamerFL/howlongtobeat-adwaita-app/issues</url>
+  <launchable type="desktop-id">com.github.justadreamerfl.HowLongToBeat.desktop</launchable>
+  <provides>
+    <binary>howlongtobeat</binary>
+  </provides>
+  <categories>
+    <category>Game</category>
+    <category>Utility</category>
+  </categories>
+  <keywords>
+    <keyword>games</keyword>
+    <keyword>time</keyword>
+    <keyword>completion</keyword>
+    <keyword>hltb</keyword>
+  </keywords>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2025-11-22">
+      <description>
+        <p>Initial release</p>
+        <ul>
+          <li>Search functionality</li>
+          <li>Display game completion times</li>
+          <li>LibAdwaita interface</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+</component>
