@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=HowLongToBeat
+Comment=Search game completion times
+Exec=howlongtobeat
+Icon=com.github.justadreamerfl.HowLongToBeat
+Terminal=false
+Type=Application
+Categories=Game;Utility;
+Keywords=games;time;completion;hltb;
