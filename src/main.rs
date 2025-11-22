@@ -1,17 +1,15 @@
 mod api;
 mod ui;
 
-use libadwaita as adw;
 use adw::prelude::*;
 use gtk::glib;
+use libadwaita as adw;
 
 const APP_ID: &str = "com.github.justadreamerfl.HowLongToBeat";
 
 fn main() -> glib::ExitCode {
     // Create application
-    let app = adw::Application::builder()
-        .application_id(APP_ID)
-        .build();
+    let app = adw::Application::builder().application_id(APP_ID).build();
 
     // Connect activate signal
     app.connect_activate(build_ui);

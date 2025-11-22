@@ -19,6 +19,7 @@ pub struct SearchRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct SearchOptions {
     pub games: GameSearchOptions,
     pub users: UserSearchOptions,
@@ -48,12 +49,14 @@ pub struct UserSearchOptions {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct RangeTime {
     pub min: Option<u32>,
     pub max: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Gameplay {
     pub perspective: String,
     pub flow: String,
@@ -134,6 +137,7 @@ impl Game {
     }
 
     /// Get the image URL
+    #[allow(dead_code)]
     pub fn image_url(&self) -> String {
         format!("https://howlongtobeat.com/games/{}", self.game_image)
     }
@@ -156,17 +160,6 @@ impl Default for SearchRequest {
     }
 }
 
-impl Default for SearchOptions {
-    fn default() -> Self {
-        Self {
-            games: GameSearchOptions::default(),
-            users: UserSearchOptions::default(),
-            filter: String::new(),
-            sort: 0,
-            randomizer: 0,
-        }
-    }
-}
 
 impl Default for GameSearchOptions {
     fn default() -> Self {
@@ -190,24 +183,7 @@ impl Default for UserSearchOptions {
     }
 }
 
-impl Default for RangeTime {
-    fn default() -> Self {
-        Self {
-            min: None,
-            max: None,
-        }
-    }
-}
 
-impl Default for Gameplay {
-    fn default() -> Self {
-        Self {
-            perspective: String::new(),
-            flow: String::new(),
-            genre: String::new(),
-        }
-    }
-}
 
 pub struct HltbClient {
     client: reqwest::Client,
@@ -224,8 +200,10 @@ impl HltbClient {
     }
 
     pub async fn search(&self, query: &str) -> Result<Vec<Game>> {
-        let mut request = SearchRequest::default();
-        request.search_terms = vec![query.to_string()];
+        let request = SearchRequest {
+            search_terms: vec![query.to_string()],
+            ..Default::default()
+        };
 
         let response = self
             .client

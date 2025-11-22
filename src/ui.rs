@@ -1,11 +1,12 @@
 use libadwaita as adw;
 use adw::prelude::*;
 use gtk::glib;
-use gtk::{gio, Orientation};
+use gtk::Orientation;
 use std::sync::Arc;
 
 use crate::api::{Game, HltbClient};
 
+#[allow(dead_code)]
 pub struct AppWindow {
     pub window: adw::ApplicationWindow,
     search_entry: gtk::SearchEntry,
@@ -90,7 +91,7 @@ impl AppWindow {
         let client_clone = app_window.client.clone();
         let list_box_clone = list_box.clone();
         let stack_clone = stack.clone();
-        
+
         search_entry.connect_search_changed(move |entry| {
             let query = entry.text().to_string();
             if query.is_empty() {
@@ -110,9 +111,7 @@ impl AppWindow {
                 }
 
                 // Show loading state
-                let loading_row = adw::ActionRow::builder()
-                    .title("Searching...")
-                    .build();
+                let loading_row = adw::ActionRow::builder().title("Searching...").build();
                 let spinner = gtk::Spinner::new();
                 spinner.start();
                 loading_row.add_suffix(&spinner);
@@ -130,7 +129,7 @@ impl AppWindow {
                         if games.is_empty() {
                             let no_results = adw::ActionRow::builder()
                                 .title("No results found")
-                                .subtitle(&format!("No games found for '{}'", query))
+                                .subtitle(format!("No games found for '{}'", query))
                                 .build();
                             list_box.append(&no_results);
                         } else {
@@ -148,7 +147,7 @@ impl AppWindow {
 
                         let error_row = adw::ActionRow::builder()
                             .title("Error")
-                            .subtitle(&format!("Failed to search: {}", e))
+                            .subtitle(format!("Failed to search: {}", e))
                             .build();
                         list_box.append(&error_row);
                     }
@@ -209,12 +208,12 @@ fn create_game_row(game: &Game) -> adw::ExpanderRow {
     // Add link to game page
     let link_box = gtk::Box::new(Orientation::Horizontal, 6);
     link_box.set_halign(gtk::Align::Start);
-    
+
     let link_button = gtk::LinkButton::builder()
         .label("View on HowLongToBeat")
-        .uri(&game.game_url())
+        .uri(game.game_url())
         .build();
-    
+
     link_box.append(&link_button);
     details_box.append(&link_box);
 
@@ -225,29 +224,29 @@ fn create_game_row(game: &Game) -> adw::ExpanderRow {
 
 fn create_time_row(label: &str, time: &str, count: u32) -> gtk::Box {
     let row = gtk::Box::new(Orientation::Horizontal, 12);
-    
+
     let label_widget = gtk::Label::builder()
         .label(label)
         .halign(gtk::Align::Start)
         .hexpand(true)
         .build();
-    
+
     let time_label = gtk::Label::builder()
         .label(time)
         .halign(gtk::Align::End)
         .css_classes(vec!["dim-label"])
         .build();
-    
+
     let count_label = gtk::Label::builder()
-        .label(&format!("({} ratings)", count))
+        .label(format!("({} ratings)", count))
         .halign(gtk::Align::End)
         .css_classes(vec!["dim-label", "caption"])
         .build();
-    
+
     row.append(&label_widget);
     row.append(&time_label);
     row.append(&count_label);
-    
+
     row
 }
 

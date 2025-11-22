@@ -1,0 +1,7 @@
+[options]
+buildtype = 'debugoptimized'
+default_library = 'static'
+
+[project]
+c = ['gcc', 'clang']
+cpp = ['g++', 'clang++']
