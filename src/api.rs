@@ -4,6 +4,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 const HLTB_API_URL: &str = "https://howlongtobeat.com/api/search";
+const DEBUG_LOG_MAX_CHARS: usize = 500;
+const ERROR_RESPONSE_MAX_CHARS: usize = 200;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchRequest {
@@ -97,71 +99,38 @@ pub struct Game {
     pub count: u32,
     pub game_id: u64,
     pub game_name: String,
-    #[serde(default)]
     pub game_name_date: u64,
-    #[serde(default)]
     pub game_alias: String,
-    #[serde(default)]
     pub game_type: String,
-    #[serde(default)]
     pub game_image: String,
-    #[serde(default)]
     pub comp_lvl_combine: u32,
-    #[serde(default)]
     pub comp_lvl_sp: u32,
-    #[serde(default)]
     pub comp_lvl_co: u32,
-    #[serde(default)]
     pub comp_lvl_mp: u32,
-    #[serde(default)]
     pub comp_lvl_spd: u32,
-    #[serde(default)]
     pub comp_main: u32,
-    #[serde(default)]
     pub comp_plus: u32,
-    #[serde(default)]
     pub comp_100: u32,
-    #[serde(default)]
     pub comp_all: u32,
-    #[serde(default)]
     pub comp_main_count: u32,
-    #[serde(default)]
     pub comp_plus_count: u32,
-    #[serde(default)]
     pub comp_100_count: u32,
-    #[serde(default)]
     pub comp_all_count: u32,
-    #[serde(default)]
     pub invested_co: u32,
-    #[serde(default)]
     pub invested_mp: u32,
-    #[serde(default)]
     pub invested_co_count: u32,
-    #[serde(default)]
     pub invested_mp_count: u32,
-    #[serde(default)]
     pub count_comp: u32,
-    #[serde(default)]
     pub count_speedrun: u32,
-    #[serde(default)]
     pub count_backlog: u32,
-    #[serde(default)]
     pub count_review: u32,
-    #[serde(default)]
     pub review_score: u32,
-    #[serde(default)]
     pub count_playing: u32,
-    #[serde(default)]
     pub count_retired: u32,
-    #[serde(default)]
     pub profile_dev: String,
-    #[serde(default)]
     pub profile_popular: u32,
-    #[serde(default)]
     pub profile_steam: u32,
-    #[serde(default)]
     pub profile_platform: String,
-    #[serde(default)]
     pub release_world: u64,
 }
 
@@ -310,9 +279,10 @@ impl HltbClient {
         // Log the response for debugging (only when HLTB_DEBUG env var is set)
         if std::env::var("HLTB_DEBUG").is_ok() {
             eprintln!("API Response Status: {}", status);
-            eprintln!("API Response Body (first 500 chars): {}", 
-                      if response_text.len() > 500 { 
-                          &response_text[..500] 
+            eprintln!("API Response Body (first {} chars): {}", 
+                      DEBUG_LOG_MAX_CHARS,
+                      if response_text.len() > DEBUG_LOG_MAX_CHARS { 
+                          &response_text[..DEBUG_LOG_MAX_CHARS] 
                       } else { 
                           &response_text 
                       });
@@ -324,8 +294,8 @@ impl HltbClient {
                 anyhow::anyhow!(
                     "Failed to parse API response: {}. Response was: {}",
                     e,
-                    if response_text.len() > 200 {
-                        &response_text[..200]
+                    if response_text.len() > ERROR_RESPONSE_MAX_CHARS {
+                        &response_text[..ERROR_RESPONSE_MAX_CHARS]
                     } else {
                         &response_text
                     }
