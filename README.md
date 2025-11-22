@@ -79,6 +79,22 @@ This application is a port of the [Raycast HowLongToBeat extension](https://gith
 └── README.md
 ```
 
+## CI/CD
+
+This project includes a GitHub Actions workflow for building the app.
+
+### Manual Builds
+
+You can manually trigger a build from the GitHub Actions tab:
+
+1. Go to the "Actions" tab in the repository
+2. Select the "Build App" workflow from the left sidebar
+3. Click "Run workflow" button
+4. Select the branch you want to build
+5. Click "Run workflow"
+
+After the build completes, you can download the compiled binary from the workflow run's artifacts section.
+
 ## Credits
 
 - Built by AI (as stated in the original README)

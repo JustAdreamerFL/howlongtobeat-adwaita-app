@@ -1,0 +1,44 @@
+name: Build App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgtk-4-dev \
+          libadwaita-1-dev \
+          pkg-config \
+          build-essential
+    
+    - name: Setup Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+    
+    - name: Build with cargo
+      run: cargo build --release --verbose
+    
+    - name: Upload binary artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: howlongtobeat-linux-x86_64
+        path: target/release/howlongtobeat
+        if-no-files-found: error
+    
+    - name: Display build information
+      run: |
+        echo "Build completed successfully!"
+        echo "Binary size: $(du -h target/release/howlongtobeat | cut -f1)"
+        echo "Binary location: target/release/howlongtobeat"
