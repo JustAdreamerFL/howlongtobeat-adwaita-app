@@ -124,8 +124,10 @@ impl AppWindow {
                 stack.set_visible_child_name("results");
 
                 // Perform search
+                eprintln!("Searching for: {}", query);
                 match client.search(&query).await {
                     Ok(games) => {
+                        eprintln!("Search successful, found {} games", games.len());
                         // Clear loading indicator
                         while let Some(child) = list_box.first_child() {
                             list_box.remove(&child);
@@ -145,6 +147,7 @@ impl AppWindow {
                         }
                     }
                     Err(e) => {
+                        eprintln!("Search failed: {}", e);
                         // Clear loading indicator
                         while let Some(child) = list_box.first_child() {
                             list_box.remove(&child);
