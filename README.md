@@ -97,24 +97,23 @@ After the build completes, you can download the compiled binary from the workflo
 
 ## Troubleshooting
 
-### Search not working / Stuck on loading spinner
+For detailed troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
-If the app opens but searches get stuck with a spinning wheel:
+### Common Issues
+
+**"Failed to search: error decoding response body"**
 - This was a known issue that has been fixed in recent versions
+- Update to the latest version from the main branch
+- The fix includes better handling of missing/null API fields
+
+**Search not working / Stuck on loading spinner**
 - Make sure you're running the latest version from the main branch
 - Run the app from terminal to see debug output: `cargo run --release` or `./target/release/howlongtobeat`
 - Check the terminal output for error messages
 
-### No internet connection errors
-
-The app requires internet access to query HowLongToBeat.com. If you see connection errors:
-- Check your internet connection
-- Verify you can access https://howlongtobeat.com/ in a web browser
-- Check if you're behind a proxy or firewall
-
-### Build or runtime errors
-
-See [INSTALL.md](INSTALL.md) for detailed installation instructions and dependency requirements.
+**Build or runtime errors**
+- See [INSTALL.md](INSTALL.md) for detailed installation instructions and dependency requirements
+- See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for solutions to common problems
 
 ## Credits
 
