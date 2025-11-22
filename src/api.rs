@@ -160,7 +160,6 @@ impl Default for SearchRequest {
     }
 }
 
-
 impl Default for GameSearchOptions {
     fn default() -> Self {
         Self {
@@ -183,8 +182,6 @@ impl Default for UserSearchOptions {
     }
 }
 
-
-
 pub struct HltbClient {
     client: reqwest::Client,
 }
@@ -195,7 +192,7 @@ impl HltbClient {
             client: reqwest::Client::builder()
                 .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
                 .build()
-                .unwrap(),
+                .expect("Failed to create HTTP client"),
         }
     }
 

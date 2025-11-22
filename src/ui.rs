@@ -6,14 +6,19 @@ use std::sync::Arc;
 
 use crate::api::{Game, HltbClient};
 
-#[allow(dead_code)]
 pub struct AppWindow {
     pub window: adw::ApplicationWindow,
+    #[allow(dead_code)]
     search_entry: gtk::SearchEntry,
+    #[allow(dead_code)]
     scrolled_window: gtk::ScrolledWindow,
+    #[allow(dead_code)]
     list_box: gtk::ListBox,
+    #[allow(dead_code)]
     status_page: adw::StatusPage,
+    #[allow(dead_code)]
     stack: gtk::Stack,
+    #[allow(dead_code)]
     client: Arc<HltbClient>,
 }
 
