@@ -307,14 +307,16 @@ impl HltbClient {
         let status = response.status();
         let response_text = response.text().await?;
         
-        // Log the response for debugging
-        eprintln!("API Response Status: {}", status);
-        eprintln!("API Response Body (first 500 chars): {}", 
-                  if response_text.len() > 500 { 
-                      &response_text[..500] 
-                  } else { 
-                      &response_text 
-                  });
+        // Log the response for debugging (only when HLTB_DEBUG env var is set)
+        if std::env::var("HLTB_DEBUG").is_ok() {
+            eprintln!("API Response Status: {}", status);
+            eprintln!("API Response Body (first 500 chars): {}", 
+                      if response_text.len() > 500 { 
+                          &response_text[..500] 
+                      } else { 
+                          &response_text 
+                      });
+        }
 
         // Try to parse the response
         let search_response: SearchResponse = serde_json::from_str(&response_text)

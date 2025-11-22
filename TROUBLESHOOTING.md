@@ -16,10 +16,16 @@ This document provides solutions to common issues when using the HowLongToBeat a
 - Added comprehensive tests to prevent regression
 
 If you're still experiencing this issue on the latest version:
-1. Check the terminal output for detailed error messages showing the API response
-2. Report the issue with the API response details
-3. Check your internet connection
-4. Verify that https://howlongtobeat.com/ is accessible
+1. Enable debug logging by setting the `HLTB_DEBUG` environment variable:
+   ```bash
+   HLTB_DEBUG=1 ./howlongtobeat
+   # or
+   HLTB_DEBUG=1 cargo run --release
+   ```
+2. Check the terminal output for detailed error messages showing the API response
+3. Report the issue with the API response details
+4. Check your internet connection
+5. Verify that https://howlongtobeat.com/ is accessible
 
 ### Search returns no results
 
@@ -31,7 +37,8 @@ If you're still experiencing this issue on the latest version:
 **Solutions**:
 1. Try a different search term
 2. Check if https://howlongtobeat.com/ is accessible in your browser
-3. Run the app from terminal to see detailed error messages: `./howlongtobeat`
+3. Run the app from terminal to see error messages: `./howlongtobeat`
+4. Enable debug mode for more details: `HLTB_DEBUG=1 ./howlongtobeat`
 
 ## Build Errors
 
