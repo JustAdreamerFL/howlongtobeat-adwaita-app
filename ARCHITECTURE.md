@@ -192,9 +192,10 @@ ApplicationWindow
 The application uses GTK's main loop integration with async Rust:
 
 1. **Main Thread**: GTK event loop runs on main thread
-2. **Async Tasks**: API calls run in tokio runtime
-3. **Integration**: `glib::spawn_future_local` bridges the two
-4. **UI Updates**: Results posted back to main thread via GLib closures
+2. **Tokio Runtime**: Initialized at application startup and kept alive for the entire application lifetime
+3. **Async Tasks**: API calls run using tokio runtime for I/O operations
+4. **Integration**: `glib::spawn_future_local` bridges GTK and tokio
+5. **UI Updates**: Results posted back to main thread via GLib closures
 
 **Flow Diagram**:
 ```
@@ -206,6 +207,13 @@ Tokio Runtime → HTTP Request → API Response
     ↓
 Closure on Main Thread → Update GTK Widgets
 ```
+
+**Important Note**: The tokio runtime MUST be initialized before the GTK application runs. The `reqwest` HTTP client requires a tokio runtime context to execute async operations. In `main.rs`, we:
+1. Create a tokio runtime
+2. Enter its context with `rt.enter()`
+3. Keep both the runtime and guard alive for the entire application
+
+Without this initialization, async HTTP requests will hang indefinitely, causing the UI to show a loading spinner without ever completing the request.
 
 ## UI Design Principles
 

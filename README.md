@@ -95,6 +95,27 @@ You can manually trigger a build from the GitHub Actions tab:
 
 After the build completes, you can download the compiled binary from the workflow run's artifacts section.
 
+## Troubleshooting
+
+### Search not working / Stuck on loading spinner
+
+If the app opens but searches get stuck with a spinning wheel:
+- This was a known issue that has been fixed in recent versions
+- Make sure you're running the latest version from the main branch
+- Run the app from terminal to see debug output: `cargo run --release` or `./target/release/howlongtobeat`
+- Check the terminal output for error messages
+
+### No internet connection errors
+
+The app requires internet access to query HowLongToBeat.com. If you see connection errors:
+- Check your internet connection
+- Verify you can access https://howlongtobeat.com/ in a web browser
+- Check if you're behind a proxy or firewall
+
+### Build or runtime errors
+
+See [INSTALL.md](INSTALL.md) for detailed installation instructions and dependency requirements.
+
 ## Credits
 
 - Built by AI (as stated in the original README)
