@@ -29,6 +29,27 @@ impl Default for TestGame {
     }
 }
 
+// Test struct for search response
+#[derive(Debug, serde::Deserialize)]
+#[serde(default)]
+struct TestSearchResponse {
+    color: String,
+    title: String,
+    count: u32,
+    data: Vec<TestGame>,
+}
+
+impl Default for TestSearchResponse {
+    fn default() -> Self {
+        Self {
+            color: String::new(),
+            title: String::new(),
+            count: 0,
+            data: Vec::new(),
+        }
+    }
+}
+
 #[test]
 fn test_api_response_with_complete_data() {
     let json = r#"{
@@ -154,27 +175,6 @@ fn test_api_response_array() {
 
 #[test]
 fn test_search_response_structure() {
-    // Test the full search response structure
-    #[derive(Debug, serde::Deserialize)]
-    #[serde(default)]
-    struct TestSearchResponse {
-        color: String,
-        title: String,
-        count: u32,
-        data: Vec<TestGame>,
-    }
-
-    impl Default for TestSearchResponse {
-        fn default() -> Self {
-            Self {
-                color: String::new(),
-                title: String::new(),
-                count: 0,
-                data: Vec::new(),
-            }
-        }
-    }
-
     let json = r#"{
         "color": "blue",
         "title": "Search Results",
@@ -202,22 +202,6 @@ fn test_search_response_structure() {
 
 #[test]
 fn test_search_response_empty_results() {
-    #[derive(Debug, serde::Deserialize)]
-    #[serde(default)]
-    struct TestSearchResponse {
-        count: u32,
-        data: Vec<TestGame>,
-    }
-
-    impl Default for TestSearchResponse {
-        fn default() -> Self {
-            Self {
-                count: 0,
-                data: Vec::new(),
-            }
-        }
-    }
-
     let json = r#"{
         "count": 0,
         "data": []
