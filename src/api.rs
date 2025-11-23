@@ -43,6 +43,8 @@ pub struct SearchRequest {
 pub struct SearchOptions {
     pub games: GameSearchOptions,
     pub users: UserSearchOptions,
+    #[serde(default)]
+    pub lists: ListSearchOptions,
     pub filter: String,
     pub sort: u32,
     pub randomizer: u32,
@@ -64,6 +66,14 @@ pub struct GameSearchOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSearchOptions {
+    #[serde(rename = "sortCategory")]
+    pub sort_category: String,
+}
+
+// ListSearchOptions is structurally identical to UserSearchOptions but kept separate
+// because the API treats them as distinct concepts with potentially different valid values
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListSearchOptions {
     #[serde(rename = "sortCategory")]
     pub sort_category: String,
 }
@@ -258,6 +268,14 @@ impl Default for UserSearchOptions {
     fn default() -> Self {
         Self {
             sort_category: "postcount".to_string(),
+        }
+    }
+}
+
+impl Default for ListSearchOptions {
+    fn default() -> Self {
+        Self {
+            sort_category: "follows".to_string(),
         }
     }
 }
@@ -465,10 +483,25 @@ impl HltbClient {
             HLTB_BASE_URL, api_keys.sub_page, api_keys.search_key
         );
         
+        // Split query into words like the website does
+        let search_terms: Vec<String> = query
+            .trim()
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+        
         let request = SearchRequest {
-            search_terms: vec![query.to_string()],
+            search_terms,
             ..Default::default()
         };
+
+        // Log the request for debugging
+        if std::env::var("HLTB_DEBUG").is_ok() {
+            eprintln!("API URL: {}", api_url);
+            if let Ok(json_str) = serde_json::to_string_pretty(&request) {
+                eprintln!("Request payload:\n{}", json_str);
+            }
+        }
 
         let response = self
             .client
@@ -510,6 +543,11 @@ impl HltbClient {
                 HLTB_BASE_URL, fresh_keys.sub_page, fresh_keys.search_key
             );
             
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Retrying with fresh API keys...");
+                eprintln!("New API URL: {}", fresh_api_url);
+            }
+            
             let retry_response = self
                 .client
                 .post(&fresh_api_url)
@@ -521,6 +559,15 @@ impl HltbClient {
             
             let retry_status = retry_response.status();
             let retry_text = retry_response.text().await?;
+            
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Retry Response Status: {}", retry_status);
+                eprintln!(
+                    "Retry Response Body (first {} chars): {}", 
+                    DEBUG_LOG_MAX_CHARS,
+                    truncate_str(&retry_text, DEBUG_LOG_MAX_CHARS)
+                );
+            }
             
             if !retry_status.is_success() {
                 return Err(anyhow::anyhow!(
