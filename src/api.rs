@@ -308,53 +308,66 @@ impl HltbClient {
         let app_js_url = format!("{}{}", HLTB_BASE_URL, app_js_path);
         let app_js = self.client.get(&app_js_url).send().await?.text().await?;
         
-        // Extract the sub-page (e.g., "search" or "lookup")
-        // Looking for pattern: fetch("/api/search/".concat(
-        let sub_page = app_js
-            .find(r#"fetch("/api/"#)
-            .and_then(|pos| {
-                let start = pos + r#"fetch("/api/"#.len();
-                let end = app_js[start..].find(r#"/"#)?;
-                Some(app_js[start..start + end].to_string())
+        // Extract the sub-page and API key for the search/locate endpoint
+        // Looking for pattern: "/api/locate/".concat("key1").concat("key2")
+        // Try to find "/api/locate/" first, fall back to searching for any "/api/X/" pattern
+        let api_pattern = r#""/api/locate/"#;
+        let locate_pos = app_js.find(api_pattern)
+            .or_else(|| {
+                // Fallback: look for any "/api/XXX/" pattern that has .concat following it
+                app_js.find(r#""/api/"#)
+                    .and_then(|pos| {
+                        let region = &app_js[pos..std::cmp::min(app_js.len(), pos + 100)];
+                        // Check if this is followed by a path and then .concat
+                        if region.contains(r#".concat("#) {
+                            Some(pos)
+                        } else {
+                            None
+                        }
+                    })
             })
-            .unwrap_or_else(|| "search".to_string());
+            .ok_or_else(|| anyhow::anyhow!("Could not find API endpoint pattern in JavaScript"))?;
         
-        // Extract API search key by finding .concat patterns
-        // Pattern: .concat("key1").concat("key2")...
+        // Extract the sub-page name (between "/api/" and the next "/")
+        let sub_page_start = locate_pos + r#""/api/"#.len();
+        let sub_page = app_js[sub_page_start..]
+            .find('/')
+            .map(|slash_pos| app_js[sub_page_start..sub_page_start + slash_pos].to_string())
+            .unwrap_or_else(|| "locate".to_string());
+        
+        // Extract API search key by finding .concat patterns after the closing quote
+        // Pattern: "/api/locate/".concat("key1").concat("key2")...
         let mut search_key = String::new();
-        let mut search_pos = 0;
+        let concat_start_pos = locate_pos + format!(r#""/api/{}/""#, sub_page).len();
+        let region_end = std::cmp::min(app_js.len(), concat_start_pos + MAX_SEARCH_REGION_SIZE);
+        let search_region = &app_js[concat_start_pos..region_end];
         
-        // Find all .concat("...") patterns after fetch("/api/
-        if let Some(fetch_pos) = app_js.find(r#"fetch("/api/"#) {
-            let region_end = std::cmp::min(app_js.len(), fetch_pos + MAX_SEARCH_REGION_SIZE);
-            let search_region = &app_js[fetch_pos..region_end];
+        let mut search_pos = 0;
+        while let Some(concat_pos) = search_region[search_pos..].find(".concat(") {
+            search_pos += concat_pos + ".concat(".len();
             
-            while let Some(concat_pos) = search_region[search_pos..].find(".concat(") {
-                search_pos += concat_pos + ".concat(".len();
-                
-                // Extract the string inside concat
-                if let Some(quote_start) = search_region[search_pos..].find('"') {
-                    let after_quote = &search_region[search_pos + quote_start + 1..];
-                    if let Some(quote_end) = after_quote.find('"') {
-                        let key_part = &after_quote[..quote_end];
-                        search_key.push_str(key_part);
-                        search_pos += quote_start + quote_end + 2;
-                    } else {
-                        break;
-                    }
+            // Extract the string inside concat
+            if let Some(quote_start) = search_region[search_pos..].find('"') {
+                let after_quote = &search_region[search_pos + quote_start + 1..];
+                if let Some(quote_end) = after_quote.find('"') {
+                    let key_part = &after_quote[..quote_end];
+                    search_key.push_str(key_part);
+                    search_pos += quote_start + quote_end + 2;
                 } else {
                     break;
                 }
-                
-                // Safety: don't search too far to prevent infinite loops
-                if search_pos > MAX_SEARCH_POSITION {
-                    break;
-                }
+            } else {
+                break;
+            }
+            
+            // Safety: don't search too far to prevent infinite loops
+            if search_pos > MAX_SEARCH_POSITION {
+                break;
             }
         }
         
         if search_key.is_empty() {
-            return Err(anyhow::anyhow!("Could not extract API search key"));
+            return Err(anyhow::anyhow!("Could not extract API search key from .concat patterns"));
         }
         
         Ok(ApiKeys {
