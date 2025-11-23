@@ -16,6 +16,7 @@ security:
     # Do not run CodeQL security scanning
     enabled: false
     reason: "CodeQL scanning consistently times out on this repository. The long analysis time makes it impractical for development workflow."
+
 # Additional rules and guidelines for AI agents
 guidelines:
   # Instructions for AI agents working on this repository
