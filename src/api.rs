@@ -43,6 +43,8 @@ pub struct SearchRequest {
 pub struct SearchOptions {
     pub games: GameSearchOptions,
     pub users: UserSearchOptions,
+    #[serde(default)]
+    pub lists: ListSearchOptions,
     pub filter: String,
     pub sort: u32,
     pub randomizer: u32,
@@ -64,6 +66,12 @@ pub struct GameSearchOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSearchOptions {
+    #[serde(rename = "sortCategory")]
+    pub sort_category: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ListSearchOptions {
     #[serde(rename = "sortCategory")]
     pub sort_category: String,
 }
@@ -258,6 +266,14 @@ impl Default for UserSearchOptions {
     fn default() -> Self {
         Self {
             sort_category: "postcount".to_string(),
+        }
+    }
+}
+
+impl Default for ListSearchOptions {
+    fn default() -> Self {
+        Self {
+            sort_category: "follows".to_string(),
         }
     }
 }
