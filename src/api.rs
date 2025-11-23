@@ -87,6 +87,9 @@ pub struct RangeTime {
     pub max: Option<u32>,
 }
 
+// Note: RangeYear uses String types (not numeric) to match the API's expected format
+// The HowLongToBeat API accepts year strings like "2020", "2024", or empty strings ""
+// This differs from RangeTime which uses Option<u32> for time values in seconds
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[derive(Default)]
 pub struct RangeYear {
