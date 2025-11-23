@@ -321,10 +321,13 @@ impl HltbClient {
         // Extract the sub-page and API key for the search/locate endpoint
         // Looking for pattern: "/api/locate/".concat("key1").concat("key2")
         // Try to find "/api/locate/" first, fall back to searching for any "/api/X/" pattern
+        // Note: Both primary and fallback patterns have the same structure: "/api/{sub_page}/"
+        // so the position calculation works for both cases
         let api_pattern = r#""/api/locate/"#;
         let locate_pos = app_js.find(api_pattern)
             .or_else(|| {
                 // Fallback: look for any "/api/XXX/" pattern that has .concat following it
+                // This still follows the same structure: "/api/{something}/" so calculations remain valid
                 app_js.find(r#""/api/"#)
                     .and_then(|pos| {
                         let region = &app_js[pos..std::cmp::min(app_js.len(), pos + API_PATTERN_CHECK_SIZE)];
@@ -339,6 +342,7 @@ impl HltbClient {
             .ok_or_else(|| anyhow::anyhow!("Could not find API endpoint pattern in JavaScript"))?;
         
         // Extract the sub-page name (between "/api/" and the next "/")
+        // Works for both "/api/locate/" and any fallback "/api/{X}/" pattern
         let sub_page_start = locate_pos + r#""/api/"#.len();
         let sub_page = app_js[sub_page_start..]
             .find('/')
@@ -346,11 +350,13 @@ impl HltbClient {
             .unwrap_or_else(|| "locate".to_string());
         
         // Extract API search key by finding .concat patterns after the closing quote
-        // Pattern: "/api/locate/".concat("key1").concat("key2")...
+        // Pattern: "/api/{sub_page}/".concat("key1").concat("key2")...
+        // This works regardless of which pattern was matched above
         let mut search_key = String::new();
         // Calculate position after the full pattern "/api/{sub_page}/"
         // The pattern consists of: " + /api/ + {sub_page} + / + "
         // Fixed characters: opening quote (1) + /api/ (5) + slash (1) + closing quote (1) = 8
+        // Since we dynamically extract sub_page, this calculation works for any sub_page value
         let concat_start_pos = locate_pos + sub_page.len() + API_PATTERN_FIXED_CHARS;
         let region_end = std::cmp::min(app_js.len(), concat_start_pos + MAX_SEARCH_REGION_SIZE);
         let search_region = &app_js[concat_start_pos..region_end];
