@@ -2,25 +2,54 @@
 
 This document provides solutions to common issues when using the HowLongToBeat application.
 
+# Troubleshooting Guide
+
+This document provides solutions to common issues when using the HowLongToBeat application.
+
 ## Search Errors
 
 ### "HowLongToBeat API endpoint not found (404)" or "Search Failed"
 
-**Symptom**: When searching for a game, you see an error message.
+**Symptom**: When searching for a game, you see an error message with "404 Not Found".
 
-**Previous Issue**: The HowLongToBeat website updated their API to use dynamic endpoint URLs. This has been fixed in the latest version.
+**Recent Fix**: The API endpoint extraction logic has been improved to correctly identify the `/api/locate/` endpoint used for search. The application now automatically retries with fresh API keys when receiving a 404 error.
 
-**Solution**: Make sure you're running the latest version from the main branch:
+**Solution**: Make sure you're running the latest version:
 ```bash
 git pull origin main
 cargo build --release
 ```
 
 If you're still experiencing issues:
-1. Enable debug logging: `HLTB_DEBUG=1 ./howlongtobeat` or `HLTB_DEBUG=1 cargo run --release`
-2. Check the terminal output for detailed error messages
-3. Verify that https://howlongtobeat.com/ is accessible in your browser
-4. Report the issue with debug output if the problem persists
+
+1. **Enable debug logging** to see detailed information about API key extraction:
+   ```bash
+   HLTB_DEBUG=1 ./howlongtobeat
+   # or
+   HLTB_DEBUG=1 cargo run --release
+   ```
+   
+   Debug output will show:
+   - The _app.js file path and size
+   - Extracted API sub-page and search key
+   - Full API endpoint URL being used
+   - Response status and body preview
+   - Retry attempts with fresh keys
+
+2. **Check the terminal output** for error messages. Look for:
+   - `Found _app.js at: ...` - confirms JavaScript file was found
+   - `Extracted API keys:` - shows the extracted endpoint details
+   - `Got 404, retrying with fresh API keys...` - indicates retry attempt
+
+3. **Verify network connectivity** to https://howlongtobeat.com/ in your browser
+
+4. **Check for rate limiting** - if you're making many searches quickly, you might be temporarily blocked
+
+5. **Wait and retry** - The API endpoint hashes may have changed during a website deployment. Wait a few minutes and try again.
+
+6. **Report the issue** with debug output if the problem persists after trying the above steps
+
+**Technical Note**: The HowLongToBeat website uses dynamic API endpoint URLs that include hash values (e.g., `/api/locate/45b48b2d1685d24b`). These hashes can change when the website is updated. The application automatically handles this by extracting the current hashes from the website's JavaScript and retrying with fresh keys when a 404 occurs.
 
 ### "Failed to search: error decoding response body"
 
