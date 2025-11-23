@@ -332,6 +332,26 @@ impl AppWindow {
     }
 }
 
+fn load_game_image(image: &gtk::Picture, image_url: String) {
+    let image_clone = image.clone();
+    glib::spawn_future_local(async move {
+        if let Ok(response) = reqwest::get(&image_url).await {
+            if response.status().is_success() {
+                if let Ok(bytes) = response.bytes().await {
+                    // Use PixbufLoader which can handle the bytes directly
+                    let loader = gdk_pixbuf::PixbufLoader::new();
+                    if loader.write(&bytes).is_ok() && loader.close().is_ok() {
+                        if let Some(pixbuf) = loader.pixbuf() {
+                            let texture = gdk::Texture::for_pixbuf(&pixbuf);
+                            image_clone.set_paintable(Some(&texture));
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
 fn create_game_row(game: &Game) -> adw::ExpanderRow {
     let row = adw::ExpanderRow::builder()
         .title(&game.game_name)
@@ -351,25 +371,7 @@ fn create_game_row(game: &Game) -> adw::ExpanderRow {
             .can_shrink(true)
             .build();
 
-        // Load image asynchronously
-        let image_clone = image.clone();
-        glib::spawn_future_local(async move {
-            if let Ok(response) = reqwest::get(&image_url).await {
-                if response.status().is_success() {
-                    if let Ok(bytes) = response.bytes().await {
-                        // Use PixbufLoader which can handle the bytes directly
-                        let loader = gdk_pixbuf::PixbufLoader::new();
-                        if loader.write(&bytes).is_ok() && loader.close().is_ok() {
-                            if let Some(pixbuf) = loader.pixbuf() {
-                                let texture = gdk::Texture::for_pixbuf(&pixbuf);
-                                image_clone.set_paintable(Some(&texture));
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
+        load_game_image(&image, image_url);
         row.add_prefix(&image);
     }
 
@@ -475,23 +477,7 @@ fn create_game_card(game: &Game) -> gtk::Box {
     // Load image asynchronously
     if !game.game_image.is_empty() {
         let image_url = game.image_url();
-        let image_clone = image.clone();
-        glib::spawn_future_local(async move {
-            if let Ok(response) = reqwest::get(&image_url).await {
-                if response.status().is_success() {
-                    if let Ok(bytes) = response.bytes().await {
-                        // Use PixbufLoader which can handle the bytes directly
-                        let loader = gdk_pixbuf::PixbufLoader::new();
-                        if loader.write(&bytes).is_ok() && loader.close().is_ok() {
-                            if let Some(pixbuf) = loader.pixbuf() {
-                                let texture = gdk::Texture::for_pixbuf(&pixbuf);
-                                image_clone.set_paintable(Some(&texture));
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        load_game_image(&image, image_url);
     }
 
     card.append(&image);
