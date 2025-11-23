@@ -7,25 +7,17 @@ use std::time::Duration;
 
 use crate::api::{Game, HltbClient};
 
+#[allow(dead_code)]
 pub struct AppWindow {
     pub window: adw::ApplicationWindow,
-    #[allow(dead_code)]
     search_entry: gtk::SearchEntry,
-    #[allow(dead_code)]
     scrolled_window: gtk::ScrolledWindow,
-    #[allow(dead_code)]
     list_box: gtk::ListBox,
-    #[allow(dead_code)]
     flow_box: gtk::FlowBox,
-    #[allow(dead_code)]
     results_stack: gtk::Stack, // Stack to switch between list and grid
-    #[allow(dead_code)]
     status_page: adw::StatusPage,
-    #[allow(dead_code)]
     stack: gtk::Stack,
-    #[allow(dead_code)]
     client: Arc<HltbClient>,
-    #[allow(dead_code)]
     view_mode: Arc<Mutex<ViewMode>>,
 }
 
@@ -267,9 +259,12 @@ impl AppWindow {
                     }
                     Err(e) => {
                         eprintln!("Search failed: {}", e);
-                        // Clear loading indicator
+                        // Clear loading indicator from both views
                         while let Some(child) = list_box.first_child() {
                             list_box.remove(&child);
+                        }
+                        while let Some(child) = flow_box.first_child() {
+                            flow_box.remove(&child);
                         }
 
                         // Create error row with prominent error message
@@ -360,10 +355,16 @@ fn create_game_row(game: &Game) -> adw::ExpanderRow {
         let image_clone = image.clone();
         glib::spawn_future_local(async move {
             if let Ok(response) = reqwest::get(&image_url).await {
-                if let Ok(bytes) = response.bytes().await {
-                    if let Ok(pixbuf) = gdk_pixbuf::Pixbuf::from_read(std::io::Cursor::new(bytes.to_vec())) {
-                        let texture = gdk::Texture::for_pixbuf(&pixbuf);
-                        image_clone.set_paintable(Some(&texture));
+                if response.status().is_success() {
+                    if let Ok(bytes) = response.bytes().await {
+                        // Use PixbufLoader which can handle the bytes directly
+                        let loader = gdk_pixbuf::PixbufLoader::new();
+                        if loader.write(&bytes).is_ok() && loader.close().is_ok() {
+                            if let Some(pixbuf) = loader.pixbuf() {
+                                let texture = gdk::Texture::for_pixbuf(&pixbuf);
+                                image_clone.set_paintable(Some(&texture));
+                            }
+                        }
                     }
                 }
             }
@@ -477,10 +478,16 @@ fn create_game_card(game: &Game) -> gtk::Box {
         let image_clone = image.clone();
         glib::spawn_future_local(async move {
             if let Ok(response) = reqwest::get(&image_url).await {
-                if let Ok(bytes) = response.bytes().await {
-                    if let Ok(pixbuf) = gdk_pixbuf::Pixbuf::from_read(std::io::Cursor::new(bytes.to_vec())) {
-                        let texture = gdk::Texture::for_pixbuf(&pixbuf);
-                        image_clone.set_paintable(Some(&texture));
+                if response.status().is_success() {
+                    if let Ok(bytes) = response.bytes().await {
+                        // Use PixbufLoader which can handle the bytes directly
+                        let loader = gdk_pixbuf::PixbufLoader::new();
+                        if loader.write(&bytes).is_ok() && loader.close().is_ok() {
+                            if let Some(pixbuf) = loader.pixbuf() {
+                                let texture = gdk::Texture::for_pixbuf(&pixbuf);
+                                image_clone.set_paintable(Some(&texture));
+                            }
+                        }
                     }
                 }
             }
@@ -541,14 +548,8 @@ fn create_game_card(game: &Game) -> gtk::Box {
     let gesture = gtk::GestureClick::new();
     let game_url = game.game_url();
     gesture.connect_released(move |_gesture, _n, _x, _y| {
-        // Open URL using gio::AppInfo
-        if let Ok(app_info) = gio::AppInfo::create_from_commandline(
-            &format!("xdg-open {}", game_url),
-            None,
-            gio::AppInfoCreateFlags::NONE,
-        ) {
-            let _ = app_info.launch(&[], None::<&gio::AppLaunchContext>);
-        }
+        // Open URL using safer method
+        let _ = gio::AppInfo::launch_default_for_uri(&game_url, None::<&gio::AppLaunchContext>);
     });
     card.add_controller(gesture);
 
