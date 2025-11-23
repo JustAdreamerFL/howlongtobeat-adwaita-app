@@ -373,7 +373,7 @@ impl HltbClient {
                 }
                 
                 start_search = abs_pos + 1;
-                if start_search >= app_js.len() - MIN_REMAINING_CHARS_FOR_SEARCH {
+                if start_search >= app_js.len().saturating_sub(MIN_REMAINING_CHARS_FOR_SEARCH) {
                     break;
                 }
             }
