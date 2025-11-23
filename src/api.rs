@@ -61,6 +61,8 @@ pub struct GameSearchOptions {
     #[serde(rename = "rangeTime")]
     pub range_time: RangeTime,
     pub gameplay: Gameplay,
+    #[serde(rename = "rangeYear")]
+    pub range_year: RangeYear,
     pub modifier: String,
 }
 
@@ -87,10 +89,18 @@ pub struct RangeTime {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[derive(Default)]
+pub struct RangeYear {
+    pub min: String,
+    pub max: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct Gameplay {
     pub perspective: String,
     pub flow: String,
     pub genre: String,
+    pub difficulty: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -259,6 +269,7 @@ impl Default for GameSearchOptions {
             range_category: "main".to_string(),
             range_time: RangeTime::default(),
             gameplay: Gameplay::default(),
+            range_year: RangeYear::default(),
             modifier: String::new(),
         }
     }
