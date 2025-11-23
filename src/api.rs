@@ -343,7 +343,12 @@ impl HltbClient {
         // Extract API search key by finding .concat patterns after the closing quote
         // Pattern: "/api/locate/".concat("key1").concat("key2")...
         let mut search_key = String::new();
-        let concat_start_pos = locate_pos + format!(r#""/api/{}/""#, sub_page).len();
+        // Calculate position without allocating: "/api/" + sub_page + "/"
+        // Start is: locate_pos + len('"/api/') = locate_pos + 6
+        // Then add: sub_page.len() + len('/') = sub_page.len() + 1
+        // Then add: len('"') = 1
+        // Total: locate_pos + 6 + sub_page.len() + 1 + 1 = locate_pos + sub_page.len() + 8
+        let concat_start_pos = locate_pos + sub_page.len() + 8;
         let region_end = std::cmp::min(app_js.len(), concat_start_pos + MAX_SEARCH_REGION_SIZE);
         let search_region = &app_js[concat_start_pos..region_end];
         

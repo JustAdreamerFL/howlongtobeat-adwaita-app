@@ -2,10 +2,6 @@
 
 This document provides solutions to common issues when using the HowLongToBeat application.
 
-# Troubleshooting Guide
-
-This document provides solutions to common issues when using the HowLongToBeat application.
-
 ## Search Errors
 
 ### "HowLongToBeat API endpoint not found (404)" or "Search Failed"
