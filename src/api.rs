@@ -13,8 +13,9 @@ const MAX_SEARCH_REGION_SIZE: usize = 800;
 const MAX_SEARCH_POSITION: usize = 600;
 // Size of initial search region to check for .concat patterns (bytes)
 const API_PATTERN_CHECK_SIZE: usize = 100;
-// Length of the pattern prefix '"/api/' which is 6 characters, plus '/' (1) and '"' (1) = 8
-const API_PATTERN_PREFIX_LEN: usize = 8;
+// Length of fixed parts in pattern: "/api/{sub_page}/" excluding the variable sub_page
+// Breakdown: " (1) + /api/ (5) + / (1) + " (1) = 8
+const API_PATTERN_FIXED_CHARS: usize = 8;
 
 // Cache for API keys to avoid fetching the main page on every search
 #[derive(Clone)]
@@ -347,10 +348,10 @@ impl HltbClient {
         // Extract API search key by finding .concat patterns after the closing quote
         // Pattern: "/api/locate/".concat("key1").concat("key2")...
         let mut search_key = String::new();
-        // Calculate position after the pattern: "/api/{sub_page}/"
-        // Pattern is: " / api / {sub_page} / "
-        // Length is: opening_quote(1) + /api/(5) + sub_page.len() + /(1) + closing_quote(1)
-        let concat_start_pos = locate_pos + sub_page.len() + API_PATTERN_PREFIX_LEN;
+        // Calculate position after the full pattern "/api/{sub_page}/"
+        // The pattern consists of: " + /api/ + {sub_page} + / + "
+        // Fixed characters: opening quote (1) + /api/ (5) + slash (1) + closing quote (1) = 8
+        let concat_start_pos = locate_pos + sub_page.len() + API_PATTERN_FIXED_CHARS;
         let region_end = std::cmp::min(app_js.len(), concat_start_pos + MAX_SEARCH_REGION_SIZE);
         let search_region = &app_js[concat_start_pos..region_end];
         
