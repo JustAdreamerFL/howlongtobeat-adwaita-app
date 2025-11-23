@@ -2,10 +2,7 @@
 # This file defines rules and constraints for GitHub Copilot AI agents working on this repository
 #
 # NOTE: This is a custom configuration file for guiding AI agent behavior.
-# AI agents should read and follow these rules when working on this repository.
-#
-# Format: YAML configuration that AI agents should read and follow when working on this repository
-# Agents should check this file before performing certain operations to respect project-specific constraints
+# AI agents should check this file before performing certain operations to respect project-specific constraints.
 #
 # Schema:
 #   security:
