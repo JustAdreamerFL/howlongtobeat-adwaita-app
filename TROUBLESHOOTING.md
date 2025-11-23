@@ -4,22 +4,23 @@ This document provides solutions to common issues when using the HowLongToBeat a
 
 ## Search Errors
 
-### "HowLongToBeat API endpoint not found (404)"
+### "HowLongToBeat API endpoint not found (404)" or "Search Failed"
 
-**Symptom**: When searching for a game, you see an error message saying "HowLongToBeat API endpoint not found (404). The API may have changed."
+**Symptom**: When searching for a game, you see an error message.
 
-**Cause**: The HowLongToBeat website has updated their API and it now uses dynamic endpoint URLs with keys that need to be extracted from the main page. The old static `/api/search` endpoint no longer works and returns a 404 error.
+**Previous Issue**: The HowLongToBeat website updated their API to use dynamic endpoint URLs. This has been fixed in the latest version.
 
-**Status**: This is a known issue. The API change affects all applications using the old static endpoint.
+**Solution**: Make sure you're running the latest version from the main branch:
+```bash
+git pull origin main
+cargo build --release
+```
 
-**Workaround**: Unfortunately, there is no immediate workaround. The fix requires updating the application to:
-1. Fetch the main HowLongToBeat page
-2. Extract dynamic API keys from the page's JavaScript
-3. Use the new dynamic endpoint format: `/api/{subPage}/{apiSearchKey}`
-
-This is being tracked in issue #7. You can:
-- Check the issue for updates: https://github.com/JustAdreamerFL/howlongtobeat-adwaita-app/issues/7
-- Use the HowLongToBeat website directly in the meantime: https://howlongtobeat.com/
+If you're still experiencing issues:
+1. Enable debug logging: `HLTB_DEBUG=1 ./howlongtobeat` or `HLTB_DEBUG=1 cargo run --release`
+2. Check the terminal output for detailed error messages
+3. Verify that https://howlongtobeat.com/ is accessible in your browser
+4. Report the issue with debug output if the problem persists
 
 ### "Failed to search: error decoding response body"
 
