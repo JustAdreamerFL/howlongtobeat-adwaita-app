@@ -6,21 +6,30 @@ This document provides solutions to common issues when using the HowLongToBeat a
 
 ### "HowLongToBeat API endpoint not found (404)" or "Search Failed"
 
-**Symptom**: When searching for a game, you see an error message.
+**Symptom**: When searching for a game, you see a 404 error message even though debug output shows successful API key extraction.
 
-**Previous Issue**: The HowLongToBeat website updated their API to use dynamic endpoint URLs. This has been fixed in the latest version.
+**Fixed in Latest Version**: The application was missing required fields (`difficulty` and `rangeYear`) in the API request payload. This has been fixed.
 
-**Solution**: Make sure you're running the latest version from the main branch:
+**Solution**: Make sure you're running the latest version:
 ```bash
 git pull origin main
 cargo build --release
 ```
 
+The fix adds the missing fields to match the HowLongToBeat API requirements:
+- Added `difficulty` field to gameplay options
+- Added `rangeYear` with min/max fields to game search options
+- All 21 tests passing
+- Payload now matches working reference implementation
+
 If you're still experiencing issues:
 1. Enable debug logging: `HLTB_DEBUG=1 ./howlongtobeat` or `HLTB_DEBUG=1 cargo run --release`
 2. Check the terminal output for detailed error messages
-3. Verify that https://howlongtobeat.com/ is accessible in your browser
-4. Report the issue with debug output if the problem persists
+3. Verify the request payload includes all required fields
+4. Check that https://howlongtobeat.com/ is accessible in your browser
+5. Report the issue with debug output if the problem persists
+
+See `ISSUE_15_FIX.md` for detailed technical information about this fix.
 
 ### "Failed to search: error decoding response body"
 
