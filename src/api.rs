@@ -3,6 +3,10 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
+// NOTE: The HowLongToBeat API endpoint has changed and now returns 404.
+// The website now uses dynamic API keys that need to be extracted from the main page.
+// This means the static endpoint below may not work anymore.
+// See: https://github.com/JustAdreamerFL/howlongtobeat-adwaita-app/issues/7
 const HLTB_API_URL: &str = "https://howlongtobeat.com/api/search";
 const DEBUG_LOG_MAX_CHARS: usize = 500;
 const ERROR_RESPONSE_MAX_CHARS: usize = 200;
@@ -284,6 +288,23 @@ impl HltbClient {
                 DEBUG_LOG_MAX_CHARS,
                 truncate_str(&response_text, DEBUG_LOG_MAX_CHARS)
             );
+        }
+
+        // Check for 404 or other HTTP errors
+        if status.as_u16() == 404 {
+            return Err(anyhow::anyhow!(
+                "HowLongToBeat API endpoint not found (404). The API may have changed. \
+                 Please check https://github.com/JustAdreamerFL/howlongtobeat-adwaita-app/issues \
+                 for updates or workarounds."
+            ));
+        }
+        
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "HowLongToBeat API returned error status {}: {}",
+                status,
+                truncate_str(&response_text, ERROR_RESPONSE_MAX_CHARS)
+            ));
         }
 
         // Try to parse the response

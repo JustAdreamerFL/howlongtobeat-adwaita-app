@@ -99,6 +99,14 @@ After the build completes, you can download the compiled binary from the workflo
 
 For detailed troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
+### Known Issues
+
+**HowLongToBeat API Changes (Issue #7)**
+- The HowLongToBeat website has changed their API, and searches now return "Error" messages
+- The old static API endpoint (`/api/search`) now returns 404
+- A fix is in progress that will implement support for the new dynamic API
+- See issue #7 for updates: https://github.com/JustAdreamerFL/howlongtobeat-adwaita-app/issues/7
+
 ### Common Issues
 
 **"Failed to search: error decoding response body"**
