@@ -465,10 +465,25 @@ impl HltbClient {
             HLTB_BASE_URL, api_keys.sub_page, api_keys.search_key
         );
         
+        // Split query into words like the website does
+        let search_terms: Vec<String> = query
+            .trim()
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+        
         let request = SearchRequest {
-            search_terms: vec![query.to_string()],
+            search_terms,
             ..Default::default()
         };
+
+        // Log the request for debugging
+        if std::env::var("HLTB_DEBUG").is_ok() {
+            eprintln!("API URL: {}", api_url);
+            if let Ok(json_str) = serde_json::to_string_pretty(&request) {
+                eprintln!("Request payload:\n{}", json_str);
+            }
+        }
 
         let response = self
             .client
@@ -510,6 +525,11 @@ impl HltbClient {
                 HLTB_BASE_URL, fresh_keys.sub_page, fresh_keys.search_key
             );
             
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Retrying with fresh API keys...");
+                eprintln!("New API URL: {}", fresh_api_url);
+            }
+            
             let retry_response = self
                 .client
                 .post(&fresh_api_url)
@@ -521,6 +541,15 @@ impl HltbClient {
             
             let retry_status = retry_response.status();
             let retry_text = retry_response.text().await?;
+            
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Retry Response Status: {}", retry_status);
+                eprintln!(
+                    "Retry Response Body (first {} chars): {}", 
+                    DEBUG_LOG_MAX_CHARS,
+                    truncate_str(&retry_text, DEBUG_LOG_MAX_CHARS)
+                );
+            }
             
             if !retry_status.is_success() {
                 return Err(anyhow::anyhow!(
