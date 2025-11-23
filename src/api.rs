@@ -11,6 +11,10 @@ const ERROR_RESPONSE_MAX_CHARS: usize = 200;
 const MAX_SEARCH_REGION_SIZE: usize = 800;
 // Maximum position within search region to prevent infinite loops
 const MAX_SEARCH_POSITION: usize = 600;
+// Size of initial search region to check for .concat patterns (bytes)
+const API_PATTERN_CHECK_SIZE: usize = 100;
+// Length of the pattern prefix '"/api/' which is 6 characters, plus '/' (1) and '"' (1) = 8
+const API_PATTERN_PREFIX_LEN: usize = 8;
 
 // Cache for API keys to avoid fetching the main page on every search
 #[derive(Clone)]
@@ -322,7 +326,7 @@ impl HltbClient {
                 // Fallback: look for any "/api/XXX/" pattern that has .concat following it
                 app_js.find(r#""/api/"#)
                     .and_then(|pos| {
-                        let region = &app_js[pos..std::cmp::min(app_js.len(), pos + 100)];
+                        let region = &app_js[pos..std::cmp::min(app_js.len(), pos + API_PATTERN_CHECK_SIZE)];
                         // Check if this is followed by a path and then .concat
                         if region.contains(r#".concat("#) {
                             Some(pos)
@@ -343,12 +347,10 @@ impl HltbClient {
         // Extract API search key by finding .concat patterns after the closing quote
         // Pattern: "/api/locate/".concat("key1").concat("key2")...
         let mut search_key = String::new();
-        // Calculate position without allocating: "/api/" + sub_page + "/"
-        // Start is: locate_pos + len('"/api/') = locate_pos + 6
-        // Then add: sub_page.len() + len('/') = sub_page.len() + 1
-        // Then add: len('"') = 1
-        // Total: locate_pos + 6 + sub_page.len() + 1 + 1 = locate_pos + sub_page.len() + 8
-        let concat_start_pos = locate_pos + sub_page.len() + 8;
+        // Calculate position after the pattern: "/api/{sub_page}/"
+        // Pattern is: " / api / {sub_page} / "
+        // Length is: opening_quote(1) + /api/(5) + sub_page.len() + /(1) + closing_quote(1)
+        let concat_start_pos = locate_pos + sub_page.len() + API_PATTERN_PREFIX_LEN;
         let region_end = std::cmp::min(app_js.len(), concat_start_pos + MAX_SEARCH_REGION_SIZE);
         let search_region = &app_js[concat_start_pos..region_end];
         
