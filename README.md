@@ -101,13 +101,6 @@ For detailed troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOOTI
 
 ### Common Issues
 
-**"Search Failed" or "404 Not Found" errors**
-- **Fixed in latest version!** The API endpoint extraction has been improved
-- Update to the latest version: `git pull && cargo build --release`
-- Enable debug mode to see what's happening: `HLTB_DEBUG=1 ./target/release/howlongtobeat`
-- The app automatically retries with fresh API keys when it gets a 404
-- See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed debugging steps
-
 **"Failed to search: error decoding response body"**
 - This was a known issue that has been fixed in recent versions
 - Update to the latest version from the main branch
@@ -115,13 +108,8 @@ For detailed troubleshooting information, see [TROUBLESHOOTING.md](TROUBLESHOOTI
 
 **Search not working / Stuck on loading spinner**
 - Make sure you're running the latest version from the main branch
-- Run with debug output to see what's happening:
-  ```bash
-  HLTB_DEBUG=1 cargo run --release
-  # or
-  HLTB_DEBUG=1 ./target/release/howlongtobeat
-  ```
-- Check the terminal output for detailed error messages and API information
+- Run the app from terminal to see debug output: `cargo run --release` or `./target/release/howlongtobeat`
+- Check the terminal output for error messages
 
 **Build or runtime errors**
 - See [INSTALL.md](INSTALL.md) for detailed installation instructions and dependency requirements
