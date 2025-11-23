@@ -1,8 +1,9 @@
 use libadwaita as adw;
 use adw::prelude::*;
-use gtk::glib;
+use gtk::{gdk, gdk_pixbuf, gio, glib};
 use gtk::Orientation;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use crate::api::{Game, HltbClient};
 
@@ -20,6 +21,14 @@ pub struct AppWindow {
     stack: gtk::Stack,
     #[allow(dead_code)]
     client: Arc<HltbClient>,
+    #[allow(dead_code)]
+    view_mode: Arc<Mutex<ViewMode>>,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum ViewMode {
+    List,
+    Grid,
 }
 
 impl AppWindow {
@@ -43,7 +52,47 @@ impl AppWindow {
             .hexpand(true)
             .build();
 
+        // Make the search entry draggable (allow dragging window from search field)
+        let drag_controller = gtk::GestureDrag::new();
+        let window_weak = window.downgrade();
+        let search_entry_weak = search_entry.downgrade();
+        
+        drag_controller.connect_drag_begin(move |controller, _x, _y| {
+            if let (Some(window), Some(entry)) = (window_weak.upgrade(), search_entry_weak.upgrade()) {
+                // Only start dragging if the search entry doesn't have focus
+                // This allows users to still type in the search field
+                if !entry.has_focus() {
+                    if let Some(surface) = window.surface() {
+                        if let Ok(surface) = surface.downcast::<gdk::Toplevel>() {
+                            let device = controller.device();
+                            if let Some(device) = device {
+                                surface.begin_move(&device, 1, 0.0, 0.0, controller.current_event_time());
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        search_entry.add_controller(drag_controller);
+
         header_bar.set_title_widget(Some(&search_entry));
+
+        // Add preferences button to header bar
+        let preferences_button = gtk::MenuButton::builder()
+            .icon_name("open-menu-symbolic")
+            .tooltip_text("Preferences")
+            .build();
+
+        // Create preferences menu
+        let menu = gio::Menu::new();
+        let view_section = gio::Menu::new();
+        view_section.append(Some("List View"), Some("app.view-mode-list"));
+        view_section.append(Some("Grid View"), Some("app.view-mode-grid"));
+        menu.append_section(Some("View Mode"), &view_section);
+        
+        preferences_button.set_menu_model(Some(&menu));
+        header_bar.pack_end(&preferences_button);
 
         // Create main content area with stack
         let stack = gtk::Stack::new();
@@ -65,6 +114,7 @@ impl AppWindow {
         let scrolled_window = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Never)
             .vscrollbar_policy(gtk::PolicyType::Automatic)
+            .vexpand(true) // Make scrolled window expand to fill vertical space
             .child(&list_box)
             .build();
 
@@ -90,16 +140,24 @@ impl AppWindow {
             status_page,
             stack: stack.clone(),
             client,
+            view_mode: Arc::new(Mutex::new(ViewMode::List)),
         };
 
-        // Connect search entry signal
+        // Connect search entry signal with debouncing
         let client_clone = app_window.client.clone();
         let list_box_clone = list_box.clone();
         let stack_clone = stack.clone();
+        let search_timeout: Arc<Mutex<Option<glib::SourceId>>> = Arc::new(Mutex::new(None));
 
         search_entry.connect_search_changed(move |entry| {
             let query = entry.text().to_string();
             if query.is_empty() {
+                // Cancel pending search
+                if let Ok(mut timeout) = search_timeout.lock() {
+                    if let Some(id) = timeout.take() {
+                        id.remove();
+                    }
+                }
                 stack_clone.set_visible_child_name("empty");
                 return;
             }
@@ -107,9 +165,23 @@ impl AppWindow {
             let client = client_clone.clone();
             let list_box = list_box_clone.clone();
             let stack = stack_clone.clone();
+            let search_timeout_clone = search_timeout.clone();
 
-            // Spawn async search
-            glib::spawn_future_local(async move {
+            // Cancel previous search timeout
+            if let Ok(mut timeout) = search_timeout.lock() {
+                if let Some(id) = timeout.take() {
+                    id.remove();
+                }
+
+                // Add new debounced search with 300ms delay
+                let new_id = glib::timeout_add_local_once(Duration::from_millis(300), move || {
+                    // Clear the timeout reference
+                    if let Ok(mut timeout) = search_timeout_clone.lock() {
+                        *timeout = None;
+                    }
+
+                    // Spawn async search
+                    glib::spawn_future_local(async move {
                 // Clear previous results
                 while let Some(child) = list_box.first_child() {
                     list_box.remove(&child);
@@ -178,7 +250,11 @@ impl AppWindow {
                         list_box.append(&error_box);
                     }
                 }
-            });
+                    });
+                });
+
+                *timeout = Some(new_id);
+            }
         });
 
         app_window
@@ -198,6 +274,31 @@ fn create_game_row(game: &Game) -> adw::ExpanderRow {
             "Multiple Platforms"
         })
         .build();
+
+    // Add game image if available
+    if !game.game_image.is_empty() {
+        let image_url = game.image_url();
+        let image = gtk::Picture::builder()
+            .width_request(80)
+            .height_request(80)
+            .can_shrink(true)
+            .build();
+
+        // Load image asynchronously
+        let image_clone = image.clone();
+        glib::spawn_future_local(async move {
+            if let Ok(response) = reqwest::get(&image_url).await {
+                if let Ok(bytes) = response.bytes().await {
+                    if let Ok(pixbuf) = gdk_pixbuf::Pixbuf::from_read(std::io::Cursor::new(bytes.to_vec())) {
+                        let texture = gdk::Texture::for_pixbuf(&pixbuf);
+                        image_clone.set_paintable(Some(&texture));
+                    }
+                }
+            }
+        });
+
+        row.add_prefix(&image);
+    }
 
     // Create details box
     let details_box = gtk::Box::new(Orientation::Vertical, 12);
