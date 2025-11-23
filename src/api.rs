@@ -7,6 +7,10 @@ use std::sync::{Arc, Mutex};
 const HLTB_BASE_URL: &str = "https://howlongtobeat.com";
 const DEBUG_LOG_MAX_CHARS: usize = 500;
 const ERROR_RESPONSE_MAX_CHARS: usize = 200;
+// Maximum size of JavaScript region to search for API keys (bytes)
+const MAX_SEARCH_REGION_SIZE: usize = 800;
+// Maximum position within search region to prevent infinite loops
+const MAX_SEARCH_POSITION: usize = 600;
 
 // Cache for API keys to avoid fetching the main page on every search
 #[derive(Clone)]
@@ -290,7 +294,13 @@ impl HltbClient {
                 // Find the closing quote
                 let suffix = &html[start_pos..];
                 let end_quote = suffix.find('"')?;
-                Some(&html[quote_pos + 1..start_pos + end_quote])
+                // Check bounds before slicing
+                let end_index = start_pos + end_quote;
+                if end_index <= html.len() {
+                    Some(&html[quote_pos + 1..end_index])
+                } else {
+                    None
+                }
             })
             .ok_or_else(|| anyhow::anyhow!("Could not find _app.js path in HTML"))?;
         
@@ -316,7 +326,7 @@ impl HltbClient {
         
         // Find all .concat("...") patterns after fetch("/api/
         if let Some(fetch_pos) = app_js.find(r#"fetch("/api/"#) {
-            let region_end = std::cmp::min(app_js.len(), fetch_pos + 800);
+            let region_end = std::cmp::min(app_js.len(), fetch_pos + MAX_SEARCH_REGION_SIZE);
             let search_region = &app_js[fetch_pos..region_end];
             
             while let Some(concat_pos) = search_region[search_pos..].find(".concat(") {
@@ -336,8 +346,8 @@ impl HltbClient {
                     break;
                 }
                 
-                // Safety: don't search too far
-                if search_pos > 600 {
+                // Safety: don't search too far to prevent infinite loops
+                if search_pos > MAX_SEARCH_POSITION {
                     break;
                 }
             }
