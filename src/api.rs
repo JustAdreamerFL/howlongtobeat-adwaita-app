@@ -2,10 +2,22 @@
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
 
-const HLTB_API_URL: &str = "https://howlongtobeat.com/api/search";
+const HLTB_BASE_URL: &str = "https://howlongtobeat.com";
 const DEBUG_LOG_MAX_CHARS: usize = 500;
 const ERROR_RESPONSE_MAX_CHARS: usize = 200;
+// Maximum size of JavaScript region to search for API keys (bytes)
+const MAX_SEARCH_REGION_SIZE: usize = 800;
+// Maximum position within search region to prevent infinite loops
+const MAX_SEARCH_POSITION: usize = 600;
+
+// Cache for API keys to avoid fetching the main page on every search
+#[derive(Clone)]
+struct ApiKeys {
+    search_key: String,
+    sub_page: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchRequest {
@@ -246,6 +258,7 @@ impl Default for UserSearchOptions {
 
 pub struct HltbClient {
     client: reqwest::Client,
+    api_keys: Arc<Mutex<Option<ApiKeys>>>,
 }
 
 impl HltbClient {
@@ -255,10 +268,125 @@ impl HltbClient {
                 .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
                 .build()
                 .expect("Failed to create HTTP client"),
+            api_keys: Arc::new(Mutex::new(None)),
         }
     }
 
+    /// Fetches the main page and extracts dynamic API keys
+    async fn fetch_api_keys(&self) -> Result<ApiKeys> {
+        // Fetch the main HowLongToBeat page
+        let response = self
+            .client
+            .get(HLTB_BASE_URL)
+            .send()
+            .await?;
+        
+        let html = response.text().await?;
+        
+        // Extract the _app-*.js file path
+        // Looking for pattern like: "/_next/static/chunks/pages/_app-abc123.js"
+        let app_js_path = html
+            .find("/pages/_app-")
+            .and_then(|start_pos| {
+                // Go back to find the opening quote
+                let prefix = &html[..start_pos];
+                let quote_pos = prefix.rfind('"')?;
+                // Find the closing quote
+                let suffix = &html[start_pos..];
+                let end_quote = suffix.find('"')?;
+                // Check bounds before slicing
+                let end_index = start_pos + end_quote;
+                if end_index <= html.len() {
+                    Some(&html[quote_pos + 1..end_index])
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| anyhow::anyhow!("Could not find _app.js path in HTML"))?;
+        
+        // Fetch the _app.js file
+        let app_js_url = format!("{}{}", HLTB_BASE_URL, app_js_path);
+        let app_js = self.client.get(&app_js_url).send().await?.text().await?;
+        
+        // Extract the sub-page (e.g., "search" or "lookup")
+        // Looking for pattern: fetch("/api/search/".concat(
+        let sub_page = app_js
+            .find(r#"fetch("/api/"#)
+            .and_then(|pos| {
+                let start = pos + r#"fetch("/api/"#.len();
+                let end = app_js[start..].find(r#"/"#)?;
+                Some(app_js[start..start + end].to_string())
+            })
+            .unwrap_or_else(|| "search".to_string());
+        
+        // Extract API search key by finding .concat patterns
+        // Pattern: .concat("key1").concat("key2")...
+        let mut search_key = String::new();
+        let mut search_pos = 0;
+        
+        // Find all .concat("...") patterns after fetch("/api/
+        if let Some(fetch_pos) = app_js.find(r#"fetch("/api/"#) {
+            let region_end = std::cmp::min(app_js.len(), fetch_pos + MAX_SEARCH_REGION_SIZE);
+            let search_region = &app_js[fetch_pos..region_end];
+            
+            while let Some(concat_pos) = search_region[search_pos..].find(".concat(") {
+                search_pos += concat_pos + ".concat(".len();
+                
+                // Extract the string inside concat
+                if let Some(quote_start) = search_region[search_pos..].find('"') {
+                    let after_quote = &search_region[search_pos + quote_start + 1..];
+                    if let Some(quote_end) = after_quote.find('"') {
+                        let key_part = &after_quote[..quote_end];
+                        search_key.push_str(key_part);
+                        search_pos += quote_start + quote_end + 2;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+                
+                // Safety: don't search too far to prevent infinite loops
+                if search_pos > MAX_SEARCH_POSITION {
+                    break;
+                }
+            }
+        }
+        
+        if search_key.is_empty() {
+            return Err(anyhow::anyhow!("Could not extract API search key"));
+        }
+        
+        Ok(ApiKeys {
+            search_key,
+            sub_page,
+        })
+    }
+
     pub async fn search(&self, query: &str) -> Result<Vec<Game>> {
+        // Try to get cached API keys, or fetch new ones
+        let api_keys = {
+            let cached = self.api_keys.lock()
+                .expect("Failed to acquire API keys lock");
+            if let Some(keys) = cached.as_ref() {
+                keys.clone()
+            } else {
+                drop(cached);
+                // Fetch new keys
+                let new_keys = self.fetch_api_keys().await?;
+                let mut cache = self.api_keys.lock()
+                    .expect("Failed to acquire API keys lock for writing");
+                *cache = Some(new_keys.clone());
+                new_keys
+            }
+        };
+        
+        // Construct the dynamic API URL
+        let api_url = format!(
+            "{}/api/{}/{}",
+            HLTB_BASE_URL, api_keys.sub_page, api_keys.search_key
+        );
+        
         let request = SearchRequest {
             search_terms: vec![query.to_string()],
             ..Default::default()
@@ -266,8 +394,9 @@ impl HltbClient {
 
         let response = self
             .client
-            .post(HLTB_API_URL)
-            .header("Referer", "https://howlongtobeat.com/")
+            .post(&api_url)
+            .header("Referer", format!("{}/", HLTB_BASE_URL))
+            .header("Origin", HLTB_BASE_URL)
             .json(&request)
             .send()
             .await?;
@@ -278,12 +407,77 @@ impl HltbClient {
         
         // Log the response for debugging (only when HLTB_DEBUG env var is set)
         if std::env::var("HLTB_DEBUG").is_ok() {
+            eprintln!("API URL: {}", api_url);
             eprintln!("API Response Status: {}", status);
             eprintln!(
                 "API Response Body (first {} chars): {}", 
                 DEBUG_LOG_MAX_CHARS,
                 truncate_str(&response_text, DEBUG_LOG_MAX_CHARS)
             );
+        }
+
+        // Check for 404 - might mean API keys are stale
+        if status.as_u16() == 404 {
+            // Clear cached keys and retry once
+            {
+                let mut cache = self.api_keys.lock()
+                    .expect("Failed to acquire API keys lock for clearing");
+                *cache = None;
+            }
+            
+            // Try one more time with fresh keys
+            let fresh_keys = self.fetch_api_keys().await?;
+            let fresh_api_url = format!(
+                "{}/api/{}/{}",
+                HLTB_BASE_URL, fresh_keys.sub_page, fresh_keys.search_key
+            );
+            
+            let retry_response = self
+                .client
+                .post(&fresh_api_url)
+                .header("Referer", format!("{}/", HLTB_BASE_URL))
+                .header("Origin", HLTB_BASE_URL)
+                .json(&request)
+                .send()
+                .await?;
+            
+            let retry_status = retry_response.status();
+            let retry_text = retry_response.text().await?;
+            
+            if !retry_status.is_success() {
+                return Err(anyhow::anyhow!(
+                    "HowLongToBeat API request failed with status {}: {}",
+                    retry_status,
+                    truncate_str(&retry_text, ERROR_RESPONSE_MAX_CHARS)
+                ));
+            }
+            
+            // Parse retry response
+            let search_response: SearchResponse = serde_json::from_str(&retry_text)
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to parse API response: {}. Response was: {}",
+                        e,
+                        truncate_str(&retry_text, ERROR_RESPONSE_MAX_CHARS)
+                    )
+                })?;
+            
+            // Cache the fresh keys
+            {
+                let mut cache = self.api_keys.lock()
+                    .expect("Failed to acquire API keys lock for updating");
+                *cache = Some(fresh_keys);
+            }
+            
+            return Ok(search_response.data);
+        }
+        
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "HowLongToBeat API returned error status {}: {}",
+                status,
+                truncate_str(&response_text, ERROR_RESPONSE_MAX_CHARS)
+            ));
         }
 
         // Try to parse the response

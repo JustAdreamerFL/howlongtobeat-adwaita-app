@@ -153,11 +153,29 @@ impl AppWindow {
                             list_box.remove(&child);
                         }
 
+                        // Create error row with prominent error message
                         let error_row = adw::ActionRow::builder()
-                            .title("Error")
-                            .subtitle(format!("Failed to search: {}", e))
+                            .title("Search Failed")
                             .build();
-                        list_box.append(&error_row);
+                        
+                        // Create a label for the full error message
+                        let error_label = gtk::Label::builder()
+                            .label(format!("{}", e))
+                            .wrap(true)
+                            .wrap_mode(gtk::pango::WrapMode::Word)
+                            .xalign(0.0)
+                            .margin_top(8)
+                            .margin_bottom(8)
+                            .margin_start(12)
+                            .margin_end(12)
+                            .css_classes(vec!["dim-label"])
+                            .build();
+                        
+                        let error_box = gtk::Box::new(Orientation::Vertical, 4);
+                        error_box.append(&error_row);
+                        error_box.append(&error_label);
+                        
+                        list_box.append(&error_box);
                     }
                 }
             });
