@@ -11,6 +11,12 @@ const ERROR_RESPONSE_MAX_CHARS: usize = 200;
 const MAX_SEARCH_REGION_SIZE: usize = 800;
 // Maximum position within search region to prevent infinite loops
 const MAX_SEARCH_POSITION: usize = 600;
+// Lookahead distance to verify .concat patterns exist (bytes)
+const CONCAT_VERIFICATION_LOOKAHEAD: usize = 100;
+// Extended lookahead for fallback endpoint verification (bytes)
+const FALLBACK_CONCAT_VERIFICATION_LOOKAHEAD: usize = 150;
+// Minimum remaining characters needed to continue fallback search
+const MIN_REMAINING_CHARS_FOR_SEARCH: usize = 50;
 
 // Cache for API keys to avoid fetching the main page on every search
 #[derive(Clone)]
@@ -325,7 +331,7 @@ impl HltbClient {
             let pattern = format!(r#"fetch("/api/{}/"#, endpoint);
             if let Some(pos) = app_js.find(&pattern) {
                 // Verify it has .concat after it
-                let check_end = std::cmp::min(app_js.len(), pos + pattern.len() + 100);
+                let check_end = std::cmp::min(app_js.len(), pos + pattern.len() + CONCAT_VERIFICATION_LOOKAHEAD);
                 if app_js[pos..check_end].contains(".concat(") {
                     sub_page = endpoint.to_string();
                     fetch_pos = Some(pos);
@@ -349,7 +355,7 @@ impl HltbClient {
                     let potential_sub = &app_js[after_api..after_api + slash_pos];
                     
                     // Check if it has .concat nearby (indicating it's a dynamic endpoint)
-                    let check_end = std::cmp::min(app_js.len(), abs_pos + 150);
+                    let check_end = std::cmp::min(app_js.len(), abs_pos + FALLBACK_CONCAT_VERIFICATION_LOOKAHEAD);
                     let has_concat = app_js[abs_pos..check_end].contains(".concat(");
                     
                     // Skip known non-search endpoints
@@ -364,7 +370,7 @@ impl HltbClient {
                 }
                 
                 start_search = abs_pos + 1;
-                if start_search >= app_js.len() - 50 {
+                if start_search >= app_js.len() - MIN_REMAINING_CHARS_FOR_SEARCH {
                     break;
                 }
             }
