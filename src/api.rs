@@ -304,7 +304,7 @@ impl HltbClient {
             .find(r#"fetch("/api/"#)
             .and_then(|pos| {
                 let start = pos + r#"fetch("/api/"#.len();
-                let end = app_js[start..].find(r#"/"."#)?;
+                let end = app_js[start..].find(r#"/"#)?;
                 Some(app_js[start..start + end].to_string())
             })
             .unwrap_or_else(|| "search".to_string());
@@ -316,7 +316,8 @@ impl HltbClient {
         
         // Find all .concat("...") patterns after fetch("/api/
         if let Some(fetch_pos) = app_js.find(r#"fetch("/api/"#) {
-            let search_region = &app_js[fetch_pos..fetch_pos + 800];
+            let region_end = std::cmp::min(app_js.len(), fetch_pos + 800);
+            let search_region = &app_js[fetch_pos..region_end];
             
             while let Some(concat_pos) = search_region[search_pos..].find(".concat(") {
                 search_pos += concat_pos + ".concat(".len();
@@ -355,14 +356,16 @@ impl HltbClient {
     pub async fn search(&self, query: &str) -> Result<Vec<Game>> {
         // Try to get cached API keys, or fetch new ones
         let api_keys = {
-            let cached = self.api_keys.lock().unwrap();
+            let cached = self.api_keys.lock()
+                .expect("Failed to acquire API keys lock");
             if let Some(keys) = cached.as_ref() {
                 keys.clone()
             } else {
                 drop(cached);
                 // Fetch new keys
                 let new_keys = self.fetch_api_keys().await?;
-                let mut cache = self.api_keys.lock().unwrap();
+                let mut cache = self.api_keys.lock()
+                    .expect("Failed to acquire API keys lock for writing");
                 *cache = Some(new_keys.clone());
                 new_keys
             }
@@ -407,7 +410,8 @@ impl HltbClient {
         if status.as_u16() == 404 {
             // Clear cached keys and retry once
             {
-                let mut cache = self.api_keys.lock().unwrap();
+                let mut cache = self.api_keys.lock()
+                    .expect("Failed to acquire API keys lock for clearing");
                 *cache = None;
             }
             
@@ -450,7 +454,8 @@ impl HltbClient {
             
             // Cache the fresh keys
             {
-                let mut cache = self.api_keys.lock().unwrap();
+                let mut cache = self.api_keys.lock()
+                    .expect("Failed to acquire API keys lock for updating");
                 *cache = Some(fresh_keys);
             }
             
