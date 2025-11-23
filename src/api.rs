@@ -70,6 +70,8 @@ pub struct UserSearchOptions {
     pub sort_category: String,
 }
 
+// ListSearchOptions is structurally identical to UserSearchOptions but kept separate
+// because the API treats them as distinct concepts with potentially different valid values
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListSearchOptions {
     #[serde(rename = "sortCategory")]
