@@ -11,6 +11,11 @@ const ERROR_RESPONSE_MAX_CHARS: usize = 200;
 const MAX_SEARCH_REGION_SIZE: usize = 800;
 // Maximum position within search region to prevent infinite loops
 const MAX_SEARCH_POSITION: usize = 600;
+// Size of initial search region to check for .concat patterns (bytes)
+const API_PATTERN_CHECK_SIZE: usize = 100;
+// Length of fixed parts in pattern: "/api/{sub_page}/" excluding the variable sub_page
+// Breakdown: " (1) + /api/ (5) + / (1) + " (1) = 8
+const API_PATTERN_FIXED_CHARS: usize = 8;
 
 // Cache for API keys to avoid fetching the main page on every search
 #[derive(Clone)]
@@ -308,53 +313,87 @@ impl HltbClient {
         let app_js_url = format!("{}{}", HLTB_BASE_URL, app_js_path);
         let app_js = self.client.get(&app_js_url).send().await?.text().await?;
         
-        // Extract the sub-page (e.g., "search" or "lookup")
-        // Looking for pattern: fetch("/api/search/".concat(
-        let sub_page = app_js
-            .find(r#"fetch("/api/"#)
-            .and_then(|pos| {
-                let start = pos + r#"fetch("/api/"#.len();
-                let end = app_js[start..].find(r#"/"#)?;
-                Some(app_js[start..start + end].to_string())
+        if std::env::var("HLTB_DEBUG").is_ok() {
+            eprintln!("Found _app.js at: {}", app_js_path);
+            eprintln!("_app.js size: {} bytes", app_js.len());
+        }
+        
+        // Extract the sub-page and API key for the search/locate endpoint
+        // Looking for pattern: "/api/locate/".concat("key1").concat("key2")
+        // Try to find "/api/locate/" first, fall back to searching for any "/api/X/" pattern
+        // Note: Both primary and fallback patterns have the same structure: "/api/{sub_page}/"
+        // so the position calculation works for both cases
+        let api_pattern = r#""/api/locate/"#;
+        let locate_pos = app_js.find(api_pattern)
+            .or_else(|| {
+                // Fallback: look for any "/api/XXX/" pattern that has .concat following it
+                // This still follows the same structure: "/api/{something}/" so calculations remain valid
+                app_js.find(r#""/api/"#)
+                    .and_then(|pos| {
+                        let region = &app_js[pos..std::cmp::min(app_js.len(), pos + API_PATTERN_CHECK_SIZE)];
+                        // Check if this is followed by a path and then .concat
+                        if region.contains(r#".concat("#) {
+                            Some(pos)
+                        } else {
+                            None
+                        }
+                    })
             })
-            .unwrap_or_else(|| "search".to_string());
+            .ok_or_else(|| anyhow::anyhow!("Could not find API endpoint pattern in JavaScript"))?;
         
-        // Extract API search key by finding .concat patterns
-        // Pattern: .concat("key1").concat("key2")...
+        // Extract the sub-page name (between "/api/" and the next "/")
+        // Works for both "/api/locate/" and any fallback "/api/{X}/" pattern
+        let sub_page_start = locate_pos + r#""/api/"#.len();
+        let sub_page = app_js[sub_page_start..]
+            .find('/')
+            .map(|slash_pos| app_js[sub_page_start..sub_page_start + slash_pos].to_string())
+            .unwrap_or_else(|| "locate".to_string());
+        
+        // Extract API search key by finding .concat patterns after the closing quote
+        // Pattern: "/api/{sub_page}/".concat("key1").concat("key2")...
+        // This works regardless of which pattern was matched above
         let mut search_key = String::new();
-        let mut search_pos = 0;
+        // Calculate position after the full pattern "/api/{sub_page}/"
+        // The pattern consists of: " + /api/ + {sub_page} + / + "
+        // Fixed characters: opening quote (1) + /api/ (5) + slash (1) + closing quote (1) = 8
+        // Since we dynamically extract sub_page, this calculation works for any sub_page value
+        let concat_start_pos = locate_pos + sub_page.len() + API_PATTERN_FIXED_CHARS;
+        let region_end = std::cmp::min(app_js.len(), concat_start_pos + MAX_SEARCH_REGION_SIZE);
+        let search_region = &app_js[concat_start_pos..region_end];
         
-        // Find all .concat("...") patterns after fetch("/api/
-        if let Some(fetch_pos) = app_js.find(r#"fetch("/api/"#) {
-            let region_end = std::cmp::min(app_js.len(), fetch_pos + MAX_SEARCH_REGION_SIZE);
-            let search_region = &app_js[fetch_pos..region_end];
+        let mut search_pos = 0;
+        while let Some(concat_pos) = search_region[search_pos..].find(".concat(") {
+            search_pos += concat_pos + ".concat(".len();
             
-            while let Some(concat_pos) = search_region[search_pos..].find(".concat(") {
-                search_pos += concat_pos + ".concat(".len();
-                
-                // Extract the string inside concat
-                if let Some(quote_start) = search_region[search_pos..].find('"') {
-                    let after_quote = &search_region[search_pos + quote_start + 1..];
-                    if let Some(quote_end) = after_quote.find('"') {
-                        let key_part = &after_quote[..quote_end];
-                        search_key.push_str(key_part);
-                        search_pos += quote_start + quote_end + 2;
-                    } else {
-                        break;
-                    }
+            // Extract the string inside concat
+            if let Some(quote_start) = search_region[search_pos..].find('"') {
+                let after_quote = &search_region[search_pos + quote_start + 1..];
+                if let Some(quote_end) = after_quote.find('"') {
+                    let key_part = &after_quote[..quote_end];
+                    search_key.push_str(key_part);
+                    search_pos += quote_start + quote_end + 2;
                 } else {
                     break;
                 }
-                
-                // Safety: don't search too far to prevent infinite loops
-                if search_pos > MAX_SEARCH_POSITION {
-                    break;
-                }
+            } else {
+                break;
+            }
+            
+            // Safety: don't search too far to prevent infinite loops
+            if search_pos > MAX_SEARCH_POSITION {
+                break;
             }
         }
         
         if search_key.is_empty() {
-            return Err(anyhow::anyhow!("Could not extract API search key"));
+            return Err(anyhow::anyhow!("Could not extract API search key from .concat patterns"));
+        }
+        
+        if std::env::var("HLTB_DEBUG").is_ok() {
+            eprintln!("Extracted API keys:");
+            eprintln!("  Sub-page: {}", sub_page);
+            eprintln!("  Search key: {}", search_key);
+            eprintln!("  Full endpoint: /api/{}/{}", sub_page, search_key);
         }
         
         Ok(ApiKeys {
@@ -418,6 +457,10 @@ impl HltbClient {
 
         // Check for 404 - might mean API keys are stale
         if status.as_u16() == 404 {
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Got 404, retrying with fresh API keys...");
+            }
+            
             // Clear cached keys and retry once
             {
                 let mut cache = self.api_keys.lock()
@@ -432,6 +475,10 @@ impl HltbClient {
                 HLTB_BASE_URL, fresh_keys.sub_page, fresh_keys.search_key
             );
             
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Retrying with fresh API URL: {}", fresh_api_url);
+            }
+            
             let retry_response = self
                 .client
                 .post(&fresh_api_url)
@@ -443,6 +490,10 @@ impl HltbClient {
             
             let retry_status = retry_response.status();
             let retry_text = retry_response.text().await?;
+            
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Retry response status: {}", retry_status);
+            }
             
             if !retry_status.is_success() {
                 return Err(anyhow::anyhow!(
