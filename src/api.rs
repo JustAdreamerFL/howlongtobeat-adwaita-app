@@ -823,6 +823,9 @@ mod tests {
         assert!(json.contains("searchType"));
         assert!(json.contains("games"));
         assert!(json.contains("searchTerms"));
+        assert!(json.contains("lists"), "Missing 'lists' field in payload");
+        assert!(json.contains("difficulty"), "Missing 'difficulty' field in gameplay");
+        assert!(json.contains("rangeYear"), "Missing 'rangeYear' field in games");
     }
 
     #[test]
@@ -899,5 +902,45 @@ mod tests {
         assert_eq!(game.comp_100, 0);
         assert_eq!(game.profile_platform, "");
         assert_eq!(game.game_alias, "");
+    }
+
+    #[test]
+    fn test_complete_payload_structure() {
+        // Test that the complete payload matches the expected API format
+        let request = SearchRequest {
+            search_terms: vec!["test".to_string()],
+            ..Default::default()
+        };
+        
+        let json = serde_json::to_value(&request).unwrap();
+        
+        // Verify top-level structure
+        assert_eq!(json["searchType"], "games");
+        assert_eq!(json["searchPage"], 1);
+        assert_eq!(json["size"], 20);
+        
+        // Verify search options structure
+        let search_options = &json["searchOptions"];
+        assert!(search_options["games"].is_object(), "games should be an object");
+        assert!(search_options["users"].is_object(), "users should be an object");
+        assert!(search_options["lists"].is_object(), "lists should be an object");
+        
+        // Verify games options
+        let games = &search_options["games"];
+        assert!(games["gameplay"].is_object(), "gameplay should be an object");
+        assert!(games["rangeTime"].is_object(), "rangeTime should be an object");
+        assert!(games["rangeYear"].is_object(), "rangeYear should be an object");
+        
+        // Verify gameplay has all required fields
+        let gameplay = &games["gameplay"];
+        assert!(gameplay.get("perspective").is_some(), "gameplay missing perspective");
+        assert!(gameplay.get("flow").is_some(), "gameplay missing flow");
+        assert!(gameplay.get("genre").is_some(), "gameplay missing genre");
+        assert!(gameplay.get("difficulty").is_some(), "gameplay missing difficulty");
+        
+        // Verify rangeYear has required fields
+        let range_year = &games["rangeYear"];
+        assert!(range_year.get("min").is_some(), "rangeYear missing min");
+        assert!(range_year.get("max").is_some(), "rangeYear missing max");
     }
 }
