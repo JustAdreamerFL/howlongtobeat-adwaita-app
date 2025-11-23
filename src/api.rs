@@ -308,6 +308,11 @@ impl HltbClient {
         let app_js_url = format!("{}{}", HLTB_BASE_URL, app_js_path);
         let app_js = self.client.get(&app_js_url).send().await?.text().await?;
         
+        if std::env::var("HLTB_DEBUG").is_ok() {
+            eprintln!("Found _app.js at: {}", app_js_path);
+            eprintln!("_app.js size: {} bytes", app_js.len());
+        }
+        
         // Extract the sub-page and API key for the search/locate endpoint
         // Looking for pattern: "/api/locate/".concat("key1").concat("key2")
         // Try to find "/api/locate/" first, fall back to searching for any "/api/X/" pattern
@@ -368,6 +373,13 @@ impl HltbClient {
         
         if search_key.is_empty() {
             return Err(anyhow::anyhow!("Could not extract API search key from .concat patterns"));
+        }
+        
+        if std::env::var("HLTB_DEBUG").is_ok() {
+            eprintln!("Extracted API keys:");
+            eprintln!("  Sub-page: {}", sub_page);
+            eprintln!("  Search key: {}", search_key);
+            eprintln!("  Full endpoint: /api/{}/{}", sub_page, search_key);
         }
         
         Ok(ApiKeys {
@@ -431,6 +443,10 @@ impl HltbClient {
 
         // Check for 404 - might mean API keys are stale
         if status.as_u16() == 404 {
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Got 404, retrying with fresh API keys...");
+            }
+            
             // Clear cached keys and retry once
             {
                 let mut cache = self.api_keys.lock()
@@ -445,6 +461,10 @@ impl HltbClient {
                 HLTB_BASE_URL, fresh_keys.sub_page, fresh_keys.search_key
             );
             
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Retrying with fresh API URL: {}", fresh_api_url);
+            }
+            
             let retry_response = self
                 .client
                 .post(&fresh_api_url)
@@ -456,6 +476,10 @@ impl HltbClient {
             
             let retry_status = retry_response.status();
             let retry_text = retry_response.text().await?;
+            
+            if std::env::var("HLTB_DEBUG").is_ok() {
+                eprintln!("Retry response status: {}", retry_status);
+            }
             
             if !retry_status.is_success() {
                 return Err(anyhow::anyhow!(
