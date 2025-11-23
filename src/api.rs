@@ -314,12 +314,15 @@ impl HltbClient {
         let app_js_url = format!("{}{}", HLTB_BASE_URL, app_js_path);
         let app_js = self.client.get(&app_js_url).send().await?.text().await?;
         
+        // Cache debug flag to avoid repeated environment lookups
+        let debug_enabled = std::env::var("HLTB_DEBUG").is_ok();
+        
         // Extract the sub-page and search key for the correct API endpoint
         // Looking for patterns like: fetch("/api/locate/".concat("key1").concat("key2")
         // or: fetch("/api/search/".concat("key1").concat("key2")
         // We need to avoid wrong endpoints like /api/game/ or /api/user/
         
-        if std::env::var("HLTB_DEBUG").is_ok() {
+        if debug_enabled {
             eprintln!("_app.js file found, size: {} bytes", app_js.len());
         }
         
@@ -331,11 +334,11 @@ impl HltbClient {
             let pattern = format!(r#"fetch("/api/{}/"#, endpoint);
             if let Some(pos) = app_js.find(&pattern) {
                 // Verify it has .concat after it
-                let check_end = std::cmp::min(app_js.len(), pos + pattern.len() + CONCAT_VERIFICATION_LOOKAHEAD);
+                let check_end = std::cmp::min(app_js.len(), pos.saturating_add(pattern.len()).saturating_add(CONCAT_VERIFICATION_LOOKAHEAD));
                 if app_js[pos..check_end].contains(".concat(") {
                     sub_page = endpoint.to_string();
                     fetch_pos = Some(pos);
-                    if std::env::var("HLTB_DEBUG").is_ok() {
+                    if debug_enabled {
                         eprintln!("Found search endpoint: /api/{}/", endpoint);
                     }
                     break;
@@ -355,14 +358,14 @@ impl HltbClient {
                     let potential_sub = &app_js[after_api..after_api + slash_pos];
                     
                     // Check if it has .concat nearby (indicating it's a dynamic endpoint)
-                    let check_end = std::cmp::min(app_js.len(), abs_pos + FALLBACK_CONCAT_VERIFICATION_LOOKAHEAD);
+                    let check_end = std::cmp::min(app_js.len(), abs_pos.saturating_add(FALLBACK_CONCAT_VERIFICATION_LOOKAHEAD));
                     let has_concat = app_js[abs_pos..check_end].contains(".concat(");
                     
                     // Skip known non-search endpoints
                     if has_concat && potential_sub != "game" && potential_sub != "user" && !potential_sub.is_empty() {
                         sub_page = potential_sub.to_string();
                         fetch_pos = Some(abs_pos);
-                        if std::env::var("HLTB_DEBUG").is_ok() {
+                        if debug_enabled {
                             eprintln!("Found API endpoint via fallback: /api/{}/", potential_sub);
                         }
                         break;
@@ -425,7 +428,7 @@ impl HltbClient {
             ));
         }
         
-        if std::env::var("HLTB_DEBUG").is_ok() {
+        if debug_enabled {
             eprintln!("Successfully extracted API keys:");
             eprintln!("  Sub-page: {}", sub_page);
             eprintln!("  Search key: {}", search_key);
